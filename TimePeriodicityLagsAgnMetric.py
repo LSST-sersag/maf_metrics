@@ -94,20 +94,52 @@ class TimePeriodicityLagsAgnMetric:
         
         
     def runAll(self):
-        fig, axes = plt.subplots()
         
+        cmap = plt.cm.get_cmap("hsv",  self.numLC+1)
+        fig1, axes1 = plt.subplots()
+#       
+        fig2, axes2 = plt.subplots()
+        i = 1
         for f in self.fils:
             self.fil = f
+            color2 =cmap(i)
+            i = i +1
             self.__getOpSimMJDs()
             self.__generateLC()
-            self.__getPlots(fig, axes)
+            self.__getPlots1(fig1, axes1, color2)
+            self.__getPlots2(fig2, axes2, color2)
             self.filsCn = self.filsCn + 1
+            
+            
+        axes1.set_title("Time lags")
+        axes1.set_xlabel(r'$\log \frac{\sigma_{\mathcal{T}}}{\mathcal{T}}$', fontsize=12)
+        axes1.set_ylabel(r'PDF')
         
-        plt.xlabel(r'$\log \frac{\sigma_{\mathcal{T}}}{\mathcal{T}}$', fontsize=12)
-        plt.ylabel(r'PDF')
-        plt.legend(handles=self.handles)
+        
+        axes2.set_title("Periodicity")
+        axes2.set_xlabel(r'$\log \frac{\sigma_{\mathcal{T}}}{\mathcal{T}}$', fontsize=12)
+        axes2.set_ylabel(r'PDF')
+        fig1.legend(handles=self.handles, loc="upper left", bbox_to_anchor=(1.05, 0.95))
+        fig2.legend(handles=self.handles, loc="upper left",  bbox_to_anchor=(1.05, 0.95))
         plt.show()
         
+#         self.handles =  []
+        
+#         i = 0
+#         fig2, axes2 = plt.subplots()
+#         for f in self.fils:
+#             self.fil = f
+#             color2 = cmap(i)
+#             i = i + 1
+#             self.__getOpSimMJDs()
+#             self.__generateLC()
+#             self.__getPlots2(fig2, axes2, color2)
+#             self.filsCn = self.filsCn + 1
+        
+#         plt.xlabel(r'$\log \frac{\sigma_{\mathcal{T}}}{\mathcal{T}}$', fontsize=12)
+#         plt.ylabel(r'PDF')
+#         plt.legend(handles=self.handles)
+#         plt.show()
         
     # Private functions to get mjd from opsims
     
@@ -149,7 +181,7 @@ class TimePeriodicityLagsAgnMetric:
 
     # plotting data
         
-    def __getPlots(self, fig, axes): 
+    def __getPlots1(self, fig, axes, color2): 
         ttc = []
         yyc = []
         erc = []
@@ -216,20 +248,107 @@ class TimePeriodicityLagsAgnMetric:
         
         yy=lags/((1+zz)*caden)
 
+        
+        
         zzcrt=-3.356*xx-0.2638*yy
+    
         
         
-        
-        sns.kdeplot(zzcrt, shade=None, ax=axes,alpha=0.3, label='filter ' + self.fil)
+        sns.kdeplot(zzcrt, shade=None, ax=axes,alpha=0.3, label='filter ' + self.fil,color = color2)
         kdeline1 = axes.lines[0]
         xs1 = kdeline1.get_xdata()
         ys1 = kdeline1.get_ydata()
-
-        sns.kdeplot(zzcrt, shade=None, ax=axes,alpha=0.4,label='filter ' +self.fil)
-        self.handles.append(mpatches.Patch(facecolor=plt.cm.Reds(100), label='filter ' +self.fil))
+        self.handles.append(mpatches.Patch(facecolor= color2, label='filter ' +self.fil))
+        sns.kdeplot(zzcrt, shade=None, ax=axes,alpha=0.4,color = color2, label='filter ' +self.fil)
 
          
+    def __getPlots2(self, fig, axes, color2): 
+        ttc = []
+        yyc = []
+        erc = []
+        yyem = []
+        ttem = []
+        erem = []
+        for j in range(self.numLC):
+            rr = self.mjds[j]-self.mjds[j].min()
+            mx = np.int(np.ceil(rr.max()))+1
+            t,y,e=LC_opsim(self.mjds[j],self.t[150:mx+150],self.y[150:mx+150,j],self.greska2[150:mx+150,j])
+            ttc.append(t)
+            yyc.append(y)
+            erc.append(e)
+            t,y,e=LC_opsim(self.mjds[j],self.tp[150:mx+150],self.response[150:mx+150,j],self.greska2e[150:mx+150,j])
+            ttem.append(t)
+            yyem.append(y)
+            erem.append(e)
+
         
+        import statistics
+        # https://www.aanda.org/articles/aa/full_html/2013/11/aa21781-13/aa21781-13.html
+        fvarc=[]
+        fvarem=[]
+        meanerc=[]
+        meanerm=[]
+        for j in range(self.numLC):
+            tc=ttc[j]
+            c=yyc[j]
+            erc1=erc[j]
+            stdc2=np.std(c**2)
+            erc2m=np.mean(erc1)
+            ercm=100*np.mean(erc1)/np.mean(c)
+            te=ttem[j]
+            em=yyem[j]
+            erm=erem[j]
+            erm2m=np.mean(erm)
+            ermm=100*np.mean(erm)/np.mean(em)
+            stdem2=np.std(em**2)
+            meanerc.append(100*np.mean(erc1/c))
+            meanerm.append(100*np.mean(erm/em))
+            fvarc.append(np.sqrt(np.std(c**2)-erc2m)/(np.mean(c)))
+            fvarem.append(np.sqrt(np.std(em**2)-erm2m)/(np.mean(em)))
+      
+
+
+
+        caden=[]
+        brojposm=[]
+        for j in range(self.numLC):
+            tc=self.mjds[j]
+            caden.append(np.mean(np.diff(tc)))
+            brojposm.append(len(self.mjds[j]))
+
+        
+        zz=0.05
+
+        lags=np.asarray(self.lags)
+        fvarc=np.asarray(fvarc)
+        meanerc=np.asarray(meanerc)
+        caden=np.asarray(caden)
+
+
+        xx=np.array(fvarc)/np.array(meanerc)
+        
+        yy=lags/((1+zz)*caden)
+
+        
+        
+        zzcrt=-3.356*xx-0.2638*yy
+        
+     
+        zzzcrtred=(-0.002415)*xx-3.97756*yy
+        
+        sns.kdeplot(zzzcrtred, shade=None, ax=axes,alpha=0.3,label='filter ' + self.fil, color= color2)
+        kdeline1 = axes.lines[0]
+        xs1 = kdeline1.get_xdata()
+        ys1 = kdeline1.get_ydata()
+        
+        xp=np.linspace(xx.min(),xx.max(),50)
+        yp=np.linspace(yy.min(),yy.max(),50)
+        xxx,yyy=np.meshgrid(xp,yp)
+        zzz=(-0.002415)*xxx-3.97756*yyy
+
+#         self.handles.append(mpatches.Patch(facecolor=color2, label='filter ' +self.fil))
+
+             
         
     # generate artifical light curves    
     
