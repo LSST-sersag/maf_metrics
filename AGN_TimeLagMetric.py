@@ -49,6 +49,11 @@ class AGN_TimeLagMetric:
         nquist = self.__getData(self.bundle, self.lag, self.z)
         self.__getPlots(nquist, self.name)
     
+    def setName (self, name):
+        self.name = name
+    
+    def setLag(self, lag):
+        self.lag = lag
     
     def __getData(self, bundle, lag, z = 1):
         result = { 'nquist': [] }
