@@ -19,6 +19,8 @@ class AGN_TimeLagMetric:
     z = None
     opsim = None
     cmap = None
+    caden = 'mean'
+    log = False
     
     def __getOpsimData(self, opsim, band, name, nside = 32, outDir = 'TmpDir'):
         
@@ -34,7 +36,7 @@ class AGN_TimeLagMetric:
     
     
     def __getNquistValue(self, caden, lag, z):
-        return lag/((1+z)*caden)
+        return (lag/((1+z)*caden))*10
     
     
     
@@ -51,11 +53,14 @@ class AGN_TimeLagMetric:
     
     def setName (self, name):
         self.name = name
+        
+    def setCaden(self, caden = 'mean'):
+        self.caden = caden
     
     def setLag(self, lag):
         self.lag = lag
     
-    def __getData(self, bundle, lag, z = 1):
+    def __getData(self, bundle, lag, z = 0):
         result = { 'nquist': [] }
         n = len(bundle.metricValues)
         data = bundle.metricValues.filled(0)
@@ -65,22 +70,54 @@ class AGN_TimeLagMetric:
                 continue
             mv = bundle.metricValues[i]['observationStartMJD']
             mv = np.sort(mv)
-            val = (np.mean(np.diff(mv)))
-
+            val = np.diff(mv)
+            
+            if self.caden == 'mean':
+                val = (np.mean(val)) #np.mean
+            elif self.caden == 'min':
+                if len(val)  == 0:
+                    val = np.nan
+                else:
+                    val = (np.min(val))
+            elif self.caden == 'max':
+                if len(val) == 0:
+                    val = np.nan
+                else:
+                    val = np.max(val)
+            else:
+                #gcd 
+                val = np.rint(val)
+                val = val.astype(int)
+                val = np.gcd.reduce(val)
+                
+            
 
             if  math.isnan(val) :
                 result['nquist'].append(np.nan)
             else:
-                result['nquist'].append(self.__getNquistValue(val, lag, z))
+                if self.log == True:
+                    result['nquist'].append(np.log(self.__getNquistValue(val, lag, z)))
+                else:
+                    result['nquist'].append(self.__getNquistValue(val, lag, z) )
 
         return result
     
     def setCmap(self, cmap):
         self.cmap = cmap
+                                           
+    def setLogscale(self, value) :
+        self.log = value
+                                            
+    def __getPlots(self,data, opsim, threshold = True):
     
-    def __getPlots(self,data, opsim, maxval = 30):
-        nquist = np.abs(np.array(data['nquist']))
-        nquist[nquist<2.2] = np.nan
+        nquist = (np.array(data['nquist']))
+        
+        if threshold:
+            if self.log == True:
+                nquist[nquist<np.log(22)] = np.nan
+            else:
+                nquist[nquist<22] = np.nan
+                
         hp.mollview(
             nquist,
             title=  opsim,
